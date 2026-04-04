@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>silverhand_arm_ws_gateway</name>
+  <version>0.1.0</version>
+  <description>WebSocket gateway for SilverHand MoveIt and robot telemetry.</description>
+  <maintainer email="r@localhost">r</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-websockets</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
