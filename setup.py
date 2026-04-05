@@ -11,7 +11,14 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml", "README.md"]),
-        (f"share/{package_name}/launch", ["launch/mock_gateway.launch.py", "launch/ros_gateway.launch.py"]),
+        (
+            f"share/{package_name}/launch",
+            [
+                "launch/mock_gateway.launch.py",
+                "launch/ros_gateway.launch.py",
+                "launch/moveit_gateway.launch.py",
+            ],
+        ),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
