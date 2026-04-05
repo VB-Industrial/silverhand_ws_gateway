@@ -97,7 +97,7 @@ class MoveItRobotAdapter(RobotAdapter):
         await self._publish_joint_state_arm()
         await self._publish_joint_state_gripper()
 
-        action_ready = await asyncio.to_thread(self._action_client.wait_for_server, 2.0)
+        action_ready = await self._wait_for_action_server(2.0)
         if action_ready:
             await self._emit(
                 make_fault_state(
@@ -229,7 +229,7 @@ class MoveItRobotAdapter(RobotAdapter):
             await self._publish_execution_state("failed", group_name=group_name, message="MoveIt action client is not ready.")
             return
 
-        action_ready = await asyncio.to_thread(self._action_client.wait_for_server, 1.0)
+        action_ready = await self._wait_for_action_server(1.0)
         if not action_ready:
             await self._publish_execution_state("failed", group_name=group_name, message="MoveIt action server unavailable.")
             return
@@ -252,12 +252,14 @@ class MoveItRobotAdapter(RobotAdapter):
         send_goal_future = self._action_client.send_goal_async(goal_message)
         goal_handle = await self._await_rclpy_future(send_goal_future)
         if goal_handle is None or not goal_handle.accepted:
+            LOGGER.warning("MoveGroup goal rejected for %s (plan_only=%s)", group_name, plan_only)
             if plan_only:
                 await self._publish_planning_state("failed", group_name=group_name, message="MoveIt goal rejected.")
             else:
                 await self._publish_execution_state("failed", group_name=group_name, message="MoveIt goal rejected.")
             return
 
+        LOGGER.info("MoveGroup goal accepted for %s (plan_only=%s)", group_name, plan_only)
         self._active_goal_handle = goal_handle
         self._active_group_name = group_name
         asyncio.create_task(self._wait_for_goal_result(goal_handle, group_name, plan_only=plan_only))
@@ -265,8 +267,6 @@ class MoveItRobotAdapter(RobotAdapter):
     def _build_move_group_goal(self, group_name: str, target_positions: list[float], *, plan_only: bool) -> MoveGroup.Goal:
         moveit_group_name = MOVEIT_GROUP_BY_WS_GROUP[group_name]
         ros_joint_names = self._ros_joint_names_for_group(group_name)
-        current_joint_names, current_positions = self._current_joint_state_for_group(group_name)
-
         constraints = Constraints()
         constraints.name = f"{group_name}_joint_goal"
         constraints.joint_constraints = []
@@ -286,10 +286,10 @@ class MoveItRobotAdapter(RobotAdapter):
         goal.request.max_velocity_scaling_factor = 1.0
         goal.request.max_acceleration_scaling_factor = 1.0
         goal.request.goal_constraints = [constraints]
-        goal.request.start_state.is_diff = False
-        goal.request.start_state.joint_state.name = current_joint_names
-        goal.request.start_state.joint_state.position = current_positions
-        goal.request.start_state.joint_state.velocity = [0.0 for _ in current_positions]
+        # Let MoveIt use the current monitored robot state as the start state.
+        # Manually injecting a sampled JointState here caused intermittent
+        # START_STATE_INVALID / out-of-bounds failures in combined plan+execute.
+        goal.request.start_state.is_diff = True
         goal.planning_options.plan_only = plan_only
         goal.planning_options.replan = False
         return goal
@@ -364,6 +364,19 @@ class MoveItRobotAdapter(RobotAdapter):
             self._active_goal_handle = None
             self._active_group_name = None
 
+            planning_time = getattr(result, "planning_time", None)
+            error_code_val = getattr(result.error_code, "val", None)
+            error_message = result.error_code.message or _moveit_error_name(error_code_val)
+            LOGGER.info(
+                "MoveGroup result for %s: status=%s error_code=%s message=%s plan_only=%s planning_time=%s",
+                group_name,
+                status,
+                error_code_val,
+                error_message,
+                plan_only,
+                f"{planning_time:.3f}s" if isinstance(planning_time, (int, float)) else "n/a",
+            )
+
             if status == GoalStatus.STATUS_CANCELED:
                 if plan_only:
                     await self._publish_planning_state("failed", group_name=group_name, message="MoveIt goal canceled.")
@@ -373,6 +386,7 @@ class MoveItRobotAdapter(RobotAdapter):
 
             if status == GoalStatus.STATUS_SUCCEEDED and result.error_code.val == MoveItErrorCodes.SUCCESS:
                 if plan_only:
+                    LOGGER.info("MoveGroup planning succeeded for %s in %.3fs", group_name, result.planning_time)
                     await self._publish_planning_state(
                         "planned",
                         group_name=group_name,
@@ -381,10 +395,10 @@ class MoveItRobotAdapter(RobotAdapter):
                 else:
                     with self._state_lock:
                         self._pending_goals[group_name] = None
+                    LOGGER.info("MoveGroup execution succeeded for %s", group_name)
                     await self._publish_execution_state("succeeded", group_name=group_name, message="Target reached.")
                 return
 
-            error_message = result.error_code.message or _moveit_error_name(result.error_code.val)
             if plan_only:
                 await self._publish_planning_state("failed", group_name=group_name, message=error_message)
             else:
@@ -414,6 +428,17 @@ class MoveItRobotAdapter(RobotAdapter):
             self._active_goal_handle = None
             self._active_group_name = None
 
+    async def _wait_for_action_server(self, timeout_s: float) -> bool:
+        action_client = self._action_client
+        node = self._node
+        if action_client is None or node is None or self._stop_event.is_set():
+            return False
+        try:
+            return bool(await asyncio.to_thread(action_client.wait_for_server, timeout_s))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Failed to check if action server is available: %s", exc)
+            return False
+
     def _extract_goal_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         nested_goal = payload.get("goal")
         if isinstance(nested_goal, dict):
@@ -442,14 +467,6 @@ class MoveItRobotAdapter(RobotAdapter):
             return list(ROS_ARM_JOINT_NAMES)
         if group_name == GROUP_GRIPPER:
             return list(ROS_GRIPPER_JOINT_NAMES)
-        raise ValueError(f"Unsupported group_name: {group_name!r}")
-
-    def _current_joint_state_for_group(self, group_name: str) -> tuple[list[str], list[float]]:
-        with self._state_lock:
-            if group_name == GROUP_ARM:
-                return list(ROS_ARM_JOINT_NAMES), [self._arm_positions_by_ros_name[name] for name in ROS_ARM_JOINT_NAMES]
-            if group_name == GROUP_GRIPPER:
-                return list(ROS_GRIPPER_JOINT_NAMES), [self._gripper_positions_by_ros_name[name] for name in ROS_GRIPPER_JOINT_NAMES]
         raise ValueError(f"Unsupported group_name: {group_name!r}")
 
     def _get_pending_goal(self, group_name: str) -> list[float] | None:

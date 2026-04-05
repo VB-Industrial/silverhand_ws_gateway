@@ -91,7 +91,7 @@ class RosRobotAdapter(RobotAdapter):
         await self._publish_execution_state("idle", group_name=GROUP_ARM, message="Idle.")
         await self._publish_joint_state_arm()
 
-        action_ready = await asyncio.to_thread(self._action_client.wait_for_server, 2.0)
+        action_ready = await self._wait_for_action_server(2.0)
         if action_ready:
             await self._emit(
                 make_fault_state(
@@ -216,7 +216,7 @@ class RosRobotAdapter(RobotAdapter):
             await self._publish_execution_state("failed", group_name=GROUP_ARM, message="Action client is not ready.")
             return
 
-        action_ready = await asyncio.to_thread(self._action_client.wait_for_server, 1.0)
+        action_ready = await self._wait_for_action_server(1.0)
         if not action_ready:
             await self._publish_execution_state("failed", group_name=GROUP_ARM, message="arm_controller action server unavailable.")
             return
@@ -269,6 +269,17 @@ class RosRobotAdapter(RobotAdapter):
             )
         )
         await self._publish_execution_state("failed", group_name=GROUP_ARM, message="Pose goals are not mapped yet.")
+
+    async def _wait_for_action_server(self, timeout_s: float) -> bool:
+        action_client = self._action_client
+        node = self._node
+        if action_client is None or node is None or self._stop_event.is_set():
+            return False
+        try:
+            return bool(await asyncio.to_thread(action_client.wait_for_server, timeout_s))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Failed to check if action server is available: %s", exc)
+            return False
 
     def _spin_worker(self) -> None:
         assert self._node is not None
