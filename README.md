@@ -1,17 +1,24 @@
-# silverhand_arm_ws_gateway
+# silverhand_ws_gateway
 
-Robot-side websocket gateway for the SilverHand arm and gripper.
+Robot-side websocket gateway for SilverHand robot domains.
+
+Важно:
+- репозиторий уже общий: `silverhand_ws_gateway`
+- ROS package name пока сохранён как `silverhand_arm_ws_gateway` для совместимости во время миграции
+- внутри пакета уже есть два домена: `arm` и `rover`
 
 Назначение:
 - принимает команды от GUI по websocket
 - переводит их в robot-side backend
-- возвращает `joint_state`, `planning_state`, `execution_state`, `fault_state`
+- возвращает доменные state-сообщения обратно в GUI
 
 Поддерживаемые backend-режимы:
 
-- `mock` — сетевой smoke test без ROS
-- `ros` — direct `ros2_control` / `FollowJointTrajectory`
-- `moveit` — `MoveGroup` action через `MoveIt`
+- `arm/mock`
+- `arm/ros`
+- `arm/moveit`
+- `rover/mock`
+- `rover/ros`
 
 ## Зависимости
 
@@ -33,10 +40,10 @@ source install/setup.bash
 
 ## Режимы запуска
 
-### 1. Mock
+### 1. Arm mock
 
 ```bash
-ros2 run silverhand_arm_ws_gateway gateway --mode mock --host 0.0.0.0 --port 8765
+ros2 run silverhand_arm_ws_gateway gateway --domain arm --mode mock --host 0.0.0.0 --port 8765
 ```
 
 или:
@@ -57,10 +64,10 @@ Smoke test:
 
 ```bash
 cd /home/r/silver_ws/src/silverhand_arm_ws_gateway
-python3 scripts/mock_smoke_test.py --url ws://127.0.0.1:8765
+python3 scripts/mock_smoke_test.py --domain arm --url ws://127.0.0.1:8765
 ```
 
-### 2. Direct ros2_control
+### 2. Arm ros2_control
 
 Этот режим шлёт arm-команды напрямую в:
 
@@ -69,7 +76,7 @@ python3 scripts/mock_smoke_test.py --url ws://127.0.0.1:8765
 Запуск:
 
 ```bash
-ros2 run silverhand_arm_ws_gateway gateway --mode ros --host 0.0.0.0 --port 8765
+ros2 run silverhand_arm_ws_gateway gateway --domain arm --mode ros --host 0.0.0.0 --port 8765
 ```
 
 или:
@@ -85,7 +92,7 @@ cd /home/r/silver_ws/src/silverhand_arm_ws_gateway
 ./scripts/start_gateway_ros.sh
 ```
 
-### 3. MoveIt
+### 3. Arm MoveIt
 
 Этот режим шлёт arm/gripper команды в:
 
@@ -94,7 +101,7 @@ cd /home/r/silver_ws/src/silverhand_arm_ws_gateway
 Запуск:
 
 ```bash
-ros2 run silverhand_arm_ws_gateway gateway --mode moveit --host 0.0.0.0 --port 8765 --move-group-action /move_action
+ros2 run silverhand_arm_ws_gateway gateway --domain arm --mode moveit --host 0.0.0.0 --port 8765 --move-group-action /move_action
 ```
 
 или:
@@ -108,6 +115,42 @@ Helper:
 ```bash
 cd /home/r/silver_ws/src/silverhand_arm_ws_gateway
 ./scripts/start_gateway_moveit.sh
+```
+
+### 4. Rover
+
+ROS bringup:
+
+```bash
+ros2 run silverhand_arm_ws_gateway gateway \
+  --domain rover \
+  --mode ros \
+  --host 0.0.0.0 \
+  --port 8766 \
+  --rover-cmd-vel-topic /rover_base_controller/cmd_vel_unstamped \
+  --rover-odom-topic /rover_base_controller/odom \
+  --rover-battery-topic /battery_state \
+  --rover-headlights-service /power_board/set_headlights
+```
+
+Mock bringup:
+
+```bash
+ros2 run silverhand_arm_ws_gateway gateway --domain rover --mode mock --host 0.0.0.0 --port 8766
+```
+
+Launch:
+
+```bash
+ros2 launch silverhand_arm_ws_gateway rover_gateway.launch.py
+```
+
+Helper:
+
+```bash
+cd /home/r/silver_ws/src/silverhand_arm_ws_gateway
+SILVERHAND_WS_MODE=ros ./scripts/start_gateway_rover.sh
+SILVERHAND_WS_MODE=mock ./scripts/start_gateway_rover.sh
 ```
 
 ## Что поддерживается сейчас

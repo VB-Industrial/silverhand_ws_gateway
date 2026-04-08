@@ -15,6 +15,7 @@ setup(
             f"share/{package_name}/launch",
             [
                 "launch/mock_gateway.launch.py",
+                "launch/rover_gateway.launch.py",
                 "launch/ros_gateway.launch.py",
                 "launch/moveit_gateway.launch.py",
             ],
@@ -24,7 +25,7 @@ setup(
     zip_safe=True,
     maintainer="r",
     maintainer_email="r@localhost",
-    description="WebSocket gateway for SilverHand MoveIt and robot telemetry.",
+    description="WebSocket gateway for SilverHand robot domains.",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

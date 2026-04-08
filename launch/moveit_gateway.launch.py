@@ -16,6 +16,8 @@ def generate_launch_description() -> LaunchDescription:
                 name="silverhand_arm_ws_gateway",
                 output="screen",
                 arguments=[
+                    "--domain",
+                    "arm",
                     "--mode",
                     "moveit",
                     "--host",

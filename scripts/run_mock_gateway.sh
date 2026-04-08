@@ -16,6 +16,7 @@ fi
 exec env \
   PYTHONPATH="${WORKSPACE_ROOT}/install/silverhand_arm_ws_gateway/lib/python3.12/site-packages${PYTHONPATH:+:${PYTHONPATH}}" \
   "${WORKSPACE_ROOT}/install/silverhand_arm_ws_gateway/lib/silverhand_arm_ws_gateway/gateway" \
+  --domain arm \
   --mode mock \
   --host "${HOST}" \
   --port "${PORT}" \

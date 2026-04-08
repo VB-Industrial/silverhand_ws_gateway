@@ -10,6 +10,7 @@ source "/opt/ros/${ROS_DISTRO}/setup.bash"
 source "${ROS_WS}/install/setup.bash"
 
 exec ros2 run silverhand_arm_ws_gateway gateway \
+  --domain arm \
   --mode ros \
   --host "${SILVERHAND_WS_HOST:-0.0.0.0}" \
   --port "${SILVERHAND_WS_PORT:-8765}" \
