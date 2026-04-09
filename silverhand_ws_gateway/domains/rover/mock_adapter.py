@@ -35,7 +35,7 @@ class RoverMockState:
     pitch_deg: float = 0.0
     odometer_km: float = 0.0
     battery_percent: float = 86.0
-    battery_voltage_v: float = 25.2
+    battery_voltage_v: float = 25.4
     battery_current_a: float = -1.5
     last_command_monotonic: float = 0.0
 
@@ -168,7 +168,7 @@ class MockRoverAdapter(RobotAdapter):
 
         battery_drain = abs(self._state.linear_m_s) * dt * 0.018
         self._state.battery_percent = max(0.0, min(100.0, self._state.battery_percent - battery_drain))
-        self._state.battery_voltage_v = 24.0 + self._state.battery_percent * 0.05
+        self._state.battery_voltage_v = 22.0 + self._state.battery_percent * 0.04
 
     async def _publish_full_state(self) -> None:
         await self._publish_odometry()

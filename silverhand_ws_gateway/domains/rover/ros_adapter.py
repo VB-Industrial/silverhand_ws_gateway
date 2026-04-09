@@ -52,6 +52,7 @@ class RoverRosAdapter(RobotAdapter):
         self._last_xy: tuple[float, float] | None = None
         self._roll_deg = 0.0
         self._pitch_deg = 0.0
+        self._heading_deg_from_imu: float | None = None
 
     async def start(self, event_sink: EventSink) -> None:
         self._event_sink = event_sink
@@ -233,7 +234,9 @@ class RoverRosAdapter(RobotAdapter):
         if not self._should_emit_message("odometry"):
             return
         orientation = message.pose.pose.orientation
-        heading_deg = _yaw_from_quaternion_deg(orientation.x, orientation.y, orientation.z, orientation.w)
+        heading_deg = self._heading_deg_from_imu
+        if heading_deg is None:
+            heading_deg = _yaw_from_quaternion_deg(orientation.x, orientation.y, orientation.z, orientation.w)
         x_m = float(message.pose.pose.position.x)
         y_m = float(message.pose.pose.position.y)
 
@@ -260,7 +263,7 @@ class RoverRosAdapter(RobotAdapter):
         )
 
     def _on_imu(self, message: Imu) -> None:
-        roll_deg, pitch_deg, _ = _euler_from_quaternion_deg(
+        roll_deg, pitch_deg, heading_deg = _euler_from_quaternion_deg(
             message.orientation.x,
             message.orientation.y,
             message.orientation.z,
@@ -268,6 +271,7 @@ class RoverRosAdapter(RobotAdapter):
         )
         self._roll_deg = roll_deg
         self._pitch_deg = pitch_deg
+        self._heading_deg_from_imu = heading_deg
 
     def _on_battery_state(self, message: BatteryState) -> None:
         if not self._should_emit_message("battery_state"):
