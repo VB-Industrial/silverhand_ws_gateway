@@ -8,6 +8,7 @@ Type=simple
 WorkingDirectory=%h/silver_ws
 Environment=ROS_WS=%h/silver_ws
 Environment=ROS_DISTRO=jazzy
+Environment=AMENT_TRACE_SETUP_FILES=
 ExecStart=%h/silver_ws/src/silverhand_ws_gateway/scripts/start_%i.sh
 Restart=on-failure
 RestartSec=2
