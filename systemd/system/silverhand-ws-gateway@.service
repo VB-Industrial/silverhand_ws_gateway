@@ -6,6 +6,8 @@ Requires=ethernet-can.service
 After=ethernet-can.service
 
 [Service]
+User=voltbro
+Group=voltbro
 Type=simple
 WorkingDirectory=%h/silver_ws
 Environment=ROS_WS=%h/silver_ws
@@ -19,4 +21,4 @@ KillSignal=SIGINT
 TimeoutStopSec=15
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

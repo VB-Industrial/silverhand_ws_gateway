@@ -136,32 +136,31 @@ ros2 action list | grep move_action
 
 ## systemd
 
-Шаблон юнита:
+System service template:
 
-- `systemd/user/silverhand-ws-gateway@.service`
+- `systemd/system/silverhand-ws-gateway@.service`
 
 Установка:
 
 ```bash
-mkdir -p ~/.config/systemd/user
-cp /home/r/silver_ws/src/silverhand_ws_gateway/systemd/user/silverhand-ws-gateway@.service ~/.config/systemd/user/
-systemctl --user daemon-reload
+sudo install -Dm644 /home/r/silver_ws/src/silverhand_ws_gateway/systemd/system/silverhand-ws-gateway@.service /etc/systemd/system/silverhand-ws-gateway@.service
+sudo systemctl daemon-reload
 ```
 
 Инстансы:
 
 ```bash
-systemctl --user enable --now silverhand-ws-gateway@arm_mock.service
-systemctl --user enable --now silverhand-ws-gateway@arm_ros.service
-systemctl --user enable --now silverhand-ws-gateway@arm_moveit.service
-systemctl --user enable --now silverhand-ws-gateway@rover_mock.service
-systemctl --user enable --now silverhand-ws-gateway@rover_ros.service
+sudo systemctl enable --now silverhand-ws-gateway@arm_mock.service
+sudo systemctl enable --now silverhand-ws-gateway@arm_ros.service
+sudo systemctl enable --now silverhand-ws-gateway@arm_moveit.service
+sudo systemctl enable --now silverhand-ws-gateway@rover_mock.service
+sudo systemctl enable --now silverhand-ws-gateway@rover_ros.service
 ```
 
 Логи и статус:
 
 ```bash
-systemctl --user status silverhand-ws-gateway@arm_moveit.service
-journalctl --user -u silverhand-ws-gateway@arm_moveit.service -f
-systemctl --user restart silverhand-ws-gateway@arm_moveit.service
+systemctl status silverhand-ws-gateway@arm_moveit.service
+journalctl -u silverhand-ws-gateway@arm_moveit.service -f
+sudo systemctl restart silverhand-ws-gateway@arm_moveit.service
 ```
